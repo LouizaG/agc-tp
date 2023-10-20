@@ -38,7 +38,6 @@ __email__ = "louizagalou59@gmail.com"
 __status__ = "Developpement"
 
 
-
 def isfile(path: str) -> Path:  # pragma: no cover
     """Check if path is an existing file.
 
@@ -58,21 +57,35 @@ def isfile(path: str) -> Path:  # pragma: no cover
     return myfile
 
 
-def get_arguments(): # pragma: no cover
+def get_arguments():  # pragma: no cover
     """Retrieves the arguments of the program.
 
     :return: An object that contains the arguments
     """
     # Parsing arguments
-    parser = argparse.ArgumentParser(description=__doc__, usage=
-                                     "{0} -h"
+    parser = argparse.ArgumentParser(description=__doc__, usage="{0} -h"
                                      .format(sys.argv[0]))
-    parser.add_argument('-i', '-amplicon_file', dest='amplicon_file', type=isfile, required=True, 
-                        help="Amplicon is a compressed fasta file (.fasta.gz)")
-    parser.add_argument('-s', '-minseqlen', dest='minseqlen', type=int, default = 400,
-                        help="Minimum sequence length for dereplication (default 400)")
-    parser.add_argument('-m', '-mincount', dest='mincount', type=int, default = 10,
-                        help="Minimum count for dereplication  (default 10)")
+    parser.add_argument(
+        '-i',
+        '-amplicon_file',
+        dest='amplicon_file',
+        type=isfile,
+        required=True,
+        help="Amplicon is a compressed fasta file (.fasta.gz)")
+    parser.add_argument(
+        '-s',
+        '-minseqlen',
+        dest='minseqlen',
+        type=int,
+        default=400,
+        help="Minimum sequence length for dereplication (default 400)")
+    parser.add_argument(
+        '-m',
+        '-mincount',
+        dest='mincount',
+        type=int,
+        default=10,
+        help="Minimum count for dereplication  (default 10)")
     parser.add_argument('-o', '-output_file', dest='output_file', type=Path,
                         default=Path("OTU.fasta"), help="Output file")
     return parser.parse_args()
@@ -99,20 +112,25 @@ def read_fasta(amplicon_file: Path, minseqlen: int) -> Iterator[str]:
             yield sequence
 
 
-def dereplication_fulllength(amplicon_file: Path, minseqlen: int, mincount: int) -> Iterator[List]:
+def dereplication_fulllength(
+        amplicon_file: Path,
+        minseqlen: int,
+        mincount: int) -> Iterator[List]:
     """Dereplicate the set of sequence
 
     :param amplicon_file: (Path) Path to the amplicon file in FASTA.gz format.
     :param minseqlen: (int) Minimum amplicon sequence length
     :param mincount: (int) Minimum amplicon count
-    :return: A generator object that provides a (list)[sequences, count] of sequence with a count >= mincount and a length >= minseqlen.
+    :return: A generator object that provides a (list)[sequences, count] of
+    sequence with a count >= mincount and a length >= minseqlen.
     """
     sequences = dict()
 
-    for sequence in read_fasta(amplicon_file,minseqlen):
+    for sequence in read_fasta(amplicon_file, minseqlen):
         sequences[sequence] = sequences.get(sequence, 0) + 1
-    # sort the dictionnary   
-    for sequence, count in sorted(sequences.items(), key=lambda x: x[1], reverse=True):
+    # sort the dictionnary
+    for sequence, count in sorted(
+            sequences.items(), key=lambda x: x[1], reverse=True):
         if count >= mincount:
             yield [sequence, count]
 
@@ -120,14 +138,24 @@ def dereplication_fulllength(amplicon_file: Path, minseqlen: int, mincount: int)
 def get_identity(alignment_list: List[str]) -> float:
     """Compute the identity rate between two sequences
 
-    :param alignment_list:  (list) A list of aligned sequences in the format ["SE-QUENCE1", "SE-QUENCE2"]
+    :param alignment_list:  (list) A list of aligned sequences
+    in the format ["SE-QUENCE1", "SE-QUENCE2"]
     :return: (float) The rate of identity between the two sequences.
     """
-    matches = sum(1 for a, b in zip(alignment_list[0], alignment_list[1]) if a == b)
+    matches = sum(
+        1 for a,
+        b in zip(
+            alignment_list[0],
+            alignment_list[1]) if a == b)
     return matches / len(alignment_list[0]) * 100
 
 
-def abundance_greedy_clustering(amplicon_file: Path, minseqlen: int, mincount: int, chunk_size: int, kmer_size: int) -> List:
+def abundance_greedy_clustering(
+        amplicon_file: Path,
+        minseqlen: int,
+        mincount: int,
+        chunk_size: int,
+        kmer_size: int) -> List:
     """Compute an abundance greedy clustering regarding sequence count and identity.
     Identify OTU sequences.
 
@@ -140,23 +168,29 @@ def abundance_greedy_clustering(amplicon_file: Path, minseqlen: int, mincount: i
     """
     otus = []
     matrix_path = Path(__file__).parent / "MATCH"
-    
+
     # Dereplicate sequences based on abundance
-    sequences = list(dereplication_fulllength(amplicon_file, minseqlen, mincount))
-    
+    sequences = list(
+        dereplication_fulllength(
+            amplicon_file,
+            minseqlen,
+            mincount))
+
     for sequence, count in sequences:
         is_otu = True
         for otu, _ in otus:
-            aligned_seq1, aligned_seq2 = nw.global_align(sequence, otu, gap_open=-1, gap_extend=-1, matrix=str(matrix_path))
+            aligned_seq1, aligned_seq2 = nw.global_align(
+                sequence, otu, gap_open=-1, gap_extend=-1, matrix=str(matrix_path))
             identity = get_identity([aligned_seq1, aligned_seq2])
-            
+
             if identity > 97:
                 is_otu = False
                 break
         if is_otu:
             otus.append([sequence, count])
-    
+
     return otus
+
 
 def write_OTU(OTU_list: List, output_file: Path) -> None:
     """Write the OTU sequence in fasta format.
@@ -165,36 +199,44 @@ def write_OTU(OTU_list: List, output_file: Path) -> None:
     :param output_file: (Path) Path to the output file
     """
     with output_file.open('w') as out:
-            for idx, (sequence, count) in enumerate(OTU_list, 1):  # idx starts from 1
-                formatted_sequence = textwrap.fill(sequence, width=80)
-                out.write(f">OTU_{idx} occurrence:{count}\n{formatted_sequence}\n")
+        for idx, (sequence, count) in enumerate(
+                OTU_list, 1):  # idx starts from 1
+            formatted_sequence = textwrap.fill(sequence, width=80)
+            out.write(f">OTU_{idx} occurrence:{count}\n{formatted_sequence}\n")
 
 
-#==============================================================
+# ==============================================================
 # Main program
-#==============================================================
-def main(): # pragma: no cover
+# ==============================================================
+def main():  # pragma: no cover
     """
     Main program function
     """
     # Get arguments
-    args = get_arguments()   
+    args = get_arguments()
     # Dereplicate sequences
-    duplicate_list = list(dereplication_fulllength(args.amplicon_file, args.minseqlen, args.mincount))
-    
-    # Apply abundance greedy clustering to identify OTUs
-    otus = abundance_greedy_clustering(args.amplicon_file, args.minseqlen, args.mincount, 100, 8)
+    duplicate_list = list(
+        dereplication_fulllength(
+            args.amplicon_file,
+            args.minseqlen,
+            args.mincount))
 
-    # print the duplicates 
-    #for otu_sequence, otu_count in duplicate_list:
-        #print(f">sequence_count_{otu_count}\n{otu_sequence}")
+    # Apply abundance greedy clustering to identify OTUs
+    otus = abundance_greedy_clustering(
+        args.amplicon_file, args.minseqlen, args.mincount, 100, 8)
+
+    # print the duplicates
+    # for otu_sequence, otu_count in duplicate_list:
+    # print(f">sequence_count_{otu_count}\n{otu_sequence}")
 
     # Print the resulting OTUs
-    for idx, (otu_sequence, otu_count) in enumerate(otus, start=1):  # idx starts from 1
+    for idx, (otu_sequence, otu_count) in enumerate(
+            otus, start=1):  # idx starts from 1
         print(f">OTU_{idx} occurrence:{otu_count}\n{otu_sequence}\n")
 
     # Write OTUs to the output file
-    # write_OTU(otus, args.output_file)
+    write_OTU(otus, args.output_file)
+
 
 if __name__ == '__main__':
     main()
